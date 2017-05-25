@@ -1,8 +1,9 @@
-# Andreas Vlachos, 2013:
-# export PYTHONPATH="hvector/build/lib.linux-x86_64-2.7/:$PYTHONPATH"
-from _mycollections import mydefaultdict
-from mydouble import mydouble, counts
-import cPickle as pickle
+# Andreas Vlachos, 2013-
+
+from __future__ import print_function
+from collections import defaultdict
+## For Python 2, this should be cpickle for Python3 it should be _pickle
+import pickle as pickle
 import gzip
 from operator import itemgetter
 
@@ -10,20 +11,38 @@ import random
 import math
 import numpy
 
+# dot product: the sum of the product of common dimensions, or 0.0 if no common dimensions
+def dot(d1,d2):
+    sum = 0.0
+    for key in d1:
+      if key in d2:
+        sum += d1[key]*d2[key]
+    return sum
+
+# update sparse vector d1 by the value of d2 * w. 
+def iaddc(d1,d2,w):
+    for key in d2:
+        if key in d1:
+            d1[key] = d1[key] + d2[key] * w
+        else:
+            d1[key] = d2[key] * w
 
 def instance_from_svm_input(svm_input):
     """
     Generate an Instance from a SVMLight input.
+    Only sypports target which are -1 or 1/+1.
     """
-    feat_vec = mydefaultdict(mydouble)
+    feat_vec = defaultdict(float)
     costs = {}
     splitted = svm_input.split()
     if splitted[0] == "-1":
         costs["neg"] = 0
         costs["pos"] = 1
-    elif splitted[0] == "+1":
+    elif splitted[0] == "+1" or splitted[0] == "1":
         costs["neg"] = 1
         costs["pos"] = 0
+    else:
+      sys.exit("SVMLight line contains target which is not -1 or 1: "+splitted[0])
     for elem in splitted[1:]:
         fid, val = elem.split(':')
         feat_vec[fid] = float(val)
@@ -38,7 +57,7 @@ class Instance(object):
     """
 
     def __init__(self, feat_vector, costs=None):
-        self.featureVector = mydefaultdict(mydouble)
+        self.featureVector = defaultdict(float)
         for key, val in feat_vector.items():
             self.featureVector[key] = val
         self.costs = costs
@@ -82,16 +101,16 @@ class Instance(object):
         dataset. This static method remove these features from the
         dataset.
         """
-        print "Counting features"
-        feature2counts = mydefaultdict(mydouble)
+        print("Counting features")
+        feature2counts = defaultdict(float)
         for instance in instances:
             for element in instance.featureVector:
                 feature2counts[element] += 1
-        print len(feature2counts)
-        print "Removing hapax legomena"
+        print(len(feature2counts))
+        print("Removing hapax legomena")
         newInstances = []
         for instance in instances:
-            newFeatureVector = mydefaultdict(mydouble)
+            newFeatureVector = defaultdict(float)
             for element in instance.featureVector:
                 # if this feature was encountered more than once
                 if feature2counts[element] > 1:
@@ -123,6 +142,11 @@ class AROW(object):
         self.probabilities = False
         self.currentWeightVectors = {}
         self.currentVarianceVectors = {}
+        self.debug = False
+
+    def __str__(self):
+        "Show current weight and variance weightors, can be huge!"
+        return "wvs="+str(self.currentWeightVectors)+",varvs="+str(self.currentVarianceVectors)
 
     def predict(self, instance, verbose=False, probabilities=False):
         """
@@ -131,7 +155,8 @@ class AROW(object):
         instance.featureVector["biasAutoAdded"] = 1.0 # Always add bias
         prediction = Prediction()
         for label, weightVector in self.currentWeightVectors.items():
-            score = instance.featureVector.dot(weightVector)
+            score = dot(instance.featureVector,weightVector)
+            if self.debug: print("Score=",score,"fv=",instance.featureVector,"wv=",weightVector)
             prediction.label2score[label] = score
             if score > prediction.score:
                 prediction.score = score
@@ -167,7 +192,8 @@ class AROW(object):
                 maxScore = float("-inf")
                 maxLabel = None
                 for label, weightVector in probWeightVector.items():
-                    score = instance.featureVector.dot(weightVector)
+                    #score = instance.featureVector.dot(weightVector)
+                    score = dot(instance.featureVector,weightVector)
                     if score > maxScore:
                         maxScore = score
                         maxLabel = label
@@ -185,7 +211,7 @@ class AROW(object):
             # normalize it:
             prediction.entropy /= math.log(len(prediction.label2prob),2)
         else:
-            print "Need to obtain weight samples for probability estimates first"
+            print("Need to obtain weight samples for probability estimates first")
 
     def batchPredict(self, instances, probabilities=False):
         """
@@ -227,10 +253,10 @@ class AROW(object):
 
         if probabilities:
             avgCorrectEntropy = sumCorrectEntropies/float(totalCorrects)
-            print avgCorrectEntropy
+            print(avgCorrectEntropy)
             avgIncorrectEntropy = sumIncorrectEntropies/float(totalIncorrects)
-            print avgIncorrectEntropy
-            print sumLogProbCorrect
+            print(avgIncorrectEntropy)
+            print(sumLogProbCorrect)
             return sumLogProbCorrect
         else:
             return totalCost
@@ -247,14 +273,14 @@ class AROW(object):
             averagedWeightVectors = {}
             updatesLeft = rounds * len(instances)
         for label in instances[0].costs:
-            self.currentWeightVectors[label] = mydefaultdict(mydouble)
+            self.currentWeightVectors[label] = defaultdict(float)
             # remember: this is sparse in the sense that everething that doesn't have a value is 1
             # everytime we to do something with it, remember to add 1
             if adapt:
                 self.currentVarianceVectors[label] = {}
             # keep the averaged weight vector
             if averaging:
-                averagedWeightVectors[label] = mydefaultdict(mydouble)
+                averagedWeightVectors[label] = defaultdict(float)
         return averagedWeightVectors, updatesLeft
 
     def _update_parameters(self, instance, prediction, averaging, adapt, param,
@@ -267,7 +293,7 @@ class AROW(object):
         minCorrectLabelScore = float("inf")
         minCorrectLabel = None
         for label in instance.correctLabels:
-            score = instance.featureVector.dot(self.currentWeightVectors[label])
+            score = dot(instance.featureVector,self.currentWeightVectors[label])
             if score < minCorrectLabelScore:
                 minCorrectLabelScore = score
                 minCorrectLabel = label
@@ -277,8 +303,8 @@ class AROW(object):
         if adapt:
             # Calculate the confidence values
             # first for the predicted label
-            zVectorPredicted = mydefaultdict(mydouble)
-            zVectorMinCorrect = mydefaultdict(mydouble)
+            zVectorPredicted = defaultdict(float)
+            zVectorMinCorrect = defaultdict(float)
             for feature in instance.featureVector:
                 # the variance is either some value that is in the dict or just 1
                 if feature in self.currentVarianceVectors[prediction.label]:
@@ -290,28 +316,28 @@ class AROW(object):
                     zVectorMinCorrect[feature] = instance.featureVector[feature] * self.currentVarianceVectors[minCorrectLabel][feature]
                 else:
                     zVectorMinCorrect[feature] = instance.featureVector[feature]
-            confidence = zVectorPredicted.dot(instance.featureVector) + zVectorMinCorrect.dot(instance.featureVector)
+            confidence = dot(zVectorPredicted,instance.featureVector) + dot(zVectorMinCorrect,instance.featureVector)
             beta = 1.0 / (confidence + param)
             alpha = loss * beta
 
             # update the current weight vectors
-            self.currentWeightVectors[prediction.label].iaddc(zVectorPredicted, -alpha)
-            self.currentWeightVectors[minCorrectLabel].iaddc(zVectorMinCorrect, alpha)
+            iaddc(self.currentWeightVectors[prediction.label],zVectorPredicted, -alpha)
+            iaddc(self.currentWeightVectors[minCorrectLabel],zVectorMinCorrect, alpha)
             if averaging:
-                averagedWeightVectors[prediction.label].iaddc(zVectorPredicted, -alpha * updatesLeft)
-                averagedWeightVectors[minCorrectLabel].iaddc(zVectorMinCorrect, alpha * updatesLeft)
+                iaddc(averagedWeightVectors[prediction.label],zVectorPredicted, -alpha * updatesLeft)
+                iaddc(averagedWeightVectors[minCorrectLabel],zVectorMinCorrect, alpha * updatesLeft)
         else:
             # the squared norm is twice the square of the features since they are the same per class 
-            norm = 2 * (instance.featureVector.dot(instance.featureVector))
+            norm = 2 * dot(instance.featureVector,instance.featureVector)
             factor = loss / (norm + 1.0 / (2 * param))
-            self.currentWeightVectors[prediction.label].iaddc(instance.featureVector, -factor)
-            self.currentWeightVectors[minCorrectLabel].iaddc(instance.featureVector, factor)
+            iaddc(self.currentWeightVectors[prediction.label],instance.featureVector, -factor)
+            iaddc(self.currentWeightVectors[minCorrectLabel],instance.featureVector, factor)
             if averaging:
-                averagedWeightVectors[prediction.label].iaddc(instance.featureVector, -factor * updatesLeft)
-                averagedWeightVectors[minCorrectLabel].iaddc(instance.featureVector, factor * updatesLeft)
+                iaddc(averagedWeightVectors[prediction.label],instance.featureVector, -factor * updatesLeft)
+                iaddc(averagedWeightVectors[minCorrectLabel],instance.featureVector, factor * updatesLeft)
         if adapt:
             # update the diagonal covariance
-            for feature in instance.featureVector.iterkeys():
+            for feature in instance.featureVector:
                 # for the predicted
                 if feature in self.currentVarianceVectors[prediction.label]:
                     self.currentVarianceVectors[prediction.label][feature] -= beta * pow(zVectorPredicted[feature], 2)
@@ -337,13 +363,14 @@ class AROW(object):
         # might be better.
         averagedWeightVectors, updatesLeft = self._initialize_vectors(instances, averaging, rounds, adapt)
 
-        for r in xrange(rounds):
+        for r in range(rounds):
             if shuffling:
                 random.shuffle(instances)
             errorsInRound = 0
             costInRound = 0
             for instance in instances:
                 prediction = self.predict(instance)
+                if self.debug: print("Round=",r,"prediction=",prediction.label)
                 # so if the prediction was incorrect
                 # we are no longer large margin, since we are using the loss from the cost-sensitive PA
                 if instance.costs[prediction.label] > 0:
@@ -353,12 +380,12 @@ class AROW(object):
                                             averagedWeightVectors, updatesLeft)
                 if averaging:
                     updatesLeft-=1
-            print "Training error rate in round " + str(r) + " : " + str(float(errorsInRound) / len(instances))
-	    
+            print("Training error rate in round " + str(r) + " : " + str(float(errorsInRound) / len(instances)))
+      
         if averaging:
             for label in self.currentWeightVectors:
-                self.currentWeightVectors[label] = mydefaultdict(mydouble)
-                self.currentWeightVectors[label].iaddc(averagedWeightVectors[label], 1.0/float(rounds*len(instances)))
+                self.currentWeightVectors[label] = defaultdict(float)
+                iaddc(self.currentWeightVectors[label],averagedWeightVectors[label], 1.0/float(rounds*len(instances)))
 
         # Compute the final training error:
         finalTrainingErrors = 0
@@ -370,19 +397,19 @@ class AROW(object):
                 finalTrainingCost += instance.costs[prediction.label]
 
         finalTrainingErrorRate = float(finalTrainingErrors)/len(instances)
-        print "Final training error rate=" + str(finalTrainingErrorRate)
-        print "Final training cost=" + str(finalTrainingCost)
+        print("Final training error rate=" + str(finalTrainingErrorRate))
+        print("Final training cost=" + str(finalTrainingCost))
 
         return finalTrainingCost
 
     def probGeneration(self, scale=1.0, noWeightVectors=100):
         # initialize the weight vectors
-        print "Generating samples for the weight vectors to obtain probability estimates"
+        print("Generating samples for the weight vectors to obtain probability estimates")
         self.probWeightVectors = []
-        for i in xrange(noWeightVectors):
+        for i in range(noWeightVectors):
             self.probWeightVectors.append({})
             for label in self.currentWeightVectors:
-                self.probWeightVectors[i][label] = mydefaultdict(mydouble)
+                self.probWeightVectors[i][label] = defaultdict(float)
 
         for label in self.currentWeightVectors:
             # We are ignoring features that never got their weight set 
@@ -393,13 +420,13 @@ class AROW(object):
                 for i,weight in enumerate(weights):
                     self.probWeightVectors[i][label][feature] = weight
                 
-        print "done"
+        print("done")
         self.probabilities = True
 
     # train by optimizing the c parametr
     @staticmethod
     def trainOpt(instances, rounds = 10, paramValues=[0.01, 0.1, 1.0, 10, 100], heldout=0.2, adapt=True, optimizeProbs=False):
-        print "Training with " + str(len(instances)) + " instances"
+        print("Training with " + str(len(instances)) + " instances")
 
         # this value will be kept if nothing seems to work better
         bestParam = 1
@@ -408,14 +435,15 @@ class AROW(object):
         trainingInstances = instances[:int(len(instances) * (1-heldout))]
         testingInstances = instances[int(len(instances) * (1-heldout)) + 1:]
         for param in paramValues:
-            print "Training with param="+ str(param) + " on " + str(len(trainingInstances)) + " instances"
+            print("Training with param="+ str(param) + " on " + str(len(trainingInstances)) + " instances")
             # Keep the weight vectors produced in each round
             classifier = AROW()
             classifier.train(trainingInstances, True, True, rounds, param, adapt)
-            print "testing on " + str(len(testingInstances)) + " instances"
+            print("Classifier=",classifier)
+            print("testing on " + str(len(testingInstances)) + " instances")
             # Test on the dev for the weight vector produced in each round
             devCost = classifier.batchPredict(testingInstances)
-            print "Dev cost:" + str(devCost) + " avg cost per instance " + str(devCost/float(len(testingInstances)))
+            print("Dev cost:" + str(devCost) + " avg cost per instance " + str(devCost/float(len(testingInstances))))
 
             if devCost < lowestCost:
                 bestParam = param
@@ -426,16 +454,16 @@ class AROW(object):
         # Do the probs
         # So we need to pick a value between 
         if optimizeProbs:
-            print "optimizing the scale parameter for probability estimation"
+            print("optimizing the scale parameter for probability estimation")
             bestScale = 1.0
             lowestEntropy = float("inf")
             steps = 20
-            for i in xrange(steps):
+            for i in range(steps):
                 scale = 1.0 - float(i)/steps
-                print "scale= " +  str(scale)
+                print("scale= " +  str(scale))
                 bestClassifier.probGeneration(scale)
                 entropy = bestClassifier.batchPredict(testingInstances, True)
-                print "entropy sums: " + str(entropy)
+                print("entropy sums: " + str(entropy))
                 
                 if entropy < lowestEntropy:
                     bestScale = scale
@@ -443,12 +471,12 @@ class AROW(object):
         
         
         # Now train the final model:
-        print "Training with param="+ str(bestParam) + " on all the data"
+        print("Training with param="+ str(bestParam) + " on all the data")
 
         finalClassifier = AROW()
         finalClassifier.train(instances, True, True, rounds, bestParam, adapt)
         if optimizeProbs:
-            print "Adding weight samples for probability estimates with scale " + str(bestScale)
+            print("Adding weight samples for probability estimates with scale " + str(bestScale))
             finalClassifier.probGeneration(bestScale)
 
         return finalClassifier
@@ -495,23 +523,23 @@ class AROW(object):
         weightVectors = pickle.load(model_weights)
         model_weights.close()
         for label, weightVector in weightVectors.items():
-            self.currentWeightVectors[label] = mydefaultdict(mydouble, weightVector)
+            self.currentWeightVectors[label] = defaultdict(float, weightVector)
 
         try:
             with gzip.open(filename + "_probVectors.gz", "rb") as probFile:
-                print "loading probabilities"
+                print("loading probabilities")
                 pickleDictProbVectors = pickle.load(probFile)
                 self.probWeightVectors = []
                 for sample in pickleDictProbVectors:
                     label2Vectors = {}
                     for label,vector in sample.items():
-                        label2Vectors[label] = mydefaultdict(mydouble, vector)
+                        label2Vectors[label] = defaultdict(float, vector)
                     self.probWeightVectors.append(label2Vectors)
 
                 probFile.close()
                 self.probabilities = True
         except IOError:
-            print 'No weight vectors for probability estimates'
+            print('No weight vectors for probability estimates')
             self.probabilities = False
         
     
@@ -519,43 +547,30 @@ class AROW(object):
 if __name__ == "__main__":
 
     import sys
-    import random
-    random.seed(13)           
-    numpy.random.seed(13)
+    debug = False
+    shuffle = False
+    holdout = 0.75
+    seed = 13
+    removeHapax = False
+    random.seed(seed)
+    numpy.random.seed(seed)
     dataLines = open(sys.argv[1]).readlines()
 
     instances = []
     classifier_p = AROW()
-    print "Reading the data"
+    print("Reading the data")
     for line in dataLines:
-        details = line.split()
-        costs = {}
-        featureVector = mydefaultdict(mydouble)
-        
-        if details[0] == "-1":
-            costs["neg"] = 0
-            costs["pos"] = 1
-        elif details[0] == "+1":
-            costs["neg"] = 1
-            costs["pos"] = 0
+      instances.append(instance_from_svm_input(line))
+      if debug: print(instances[-1].costs)
 
-        for feature in details[1:]:
-            featureID, featureVal = feature.split(":")
-            featureVector[featureID] = float(featureVal)
-            #featureVector["dummy"+str(len(instances))] = 1.0
-            #featureVector["dummy2"+str(len(instances))] = 1.0
-            #featureVector["dummy3"+str(len(instances))] = 1.0
-        instances.append(Instance(featureVector, costs))
-        #print instances[-1].costs
-
-    random.shuffle(instances)
-    #instances = instances[:100]
+    if shuffle: random.shuffle(instances)
     # Keep some instances to check the performance
-    testingInstances = instances[int(len(instances) * 0.75) + 1:]
-    trainingInstances = instances[:int(len(instances) * 0.75)]
+    testingInstances = instances[int(len(instances) * holdout) + 1:]
+    trainingInstances = instances[:int(len(instances) * holdout)]
 
-    print "training data: " + str(len(trainingInstances)) + " instances"
-    #trainingInstances = Instance.removeHapaxLegomena(trainingInstances)
+    print("training data: " + str(len(trainingInstances)) + " instances")
+    print("testing data:  " + str(len(testingInstances)) + " instances")
+    if removeHapax: trainingInstances = Instance.removeHapaxLegomena(trainingInstances)
     #classifier_p.train(trainingInstances, True, True, 10, 0.1, False)
     
     # the penultimate parameter is True for AROW, false for PA
@@ -564,20 +579,20 @@ if __name__ == "__main__":
 
     cost = classifier_p.batchPredict(testingInstances)
     avgCost = float(cost)/len(testingInstances)
-    print "Avg Cost per instance " + str(avgCost) + " on " + str(len(testingInstances)) + " testing instances"
+    print("Avg Cost per instance " + str(avgCost) + " on " + str(len(testingInstances)) + " testing instances")
 
     #avgRatio = classifier_p.batchPredict(testingInstances, True)
-    #print "entropy sums: " + str(avgRatio)
+    #print("entropy sums: " + str(avgRatio))
 
     # Save the parameters:
-    #print "saving"
-    #classifier_p.save(sys.argv[1] + ".arow")    
-    #print "done"
+    #print("saving")
+    #classifier_p.save(sys.argv[1] + ".arow")
+    #print("done")
     # load again:
     #classifier_new = AROW()
-    #print "loading model"
+    #print("loading model")
     #classifier_new.load(sys.argv[1] + ".arow")
-    #print "done"
+    #print("done")
 
     #avgRatio = classifier_new.batchPredict(testingInstances, True)
-    #print "entropy sums: " + str(avgRatio)
+    #print("entropy sums: " + str(avgRatio))
