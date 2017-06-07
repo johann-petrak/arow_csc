@@ -1,21 +1,17 @@
 #!/usr/bin/env python
-import arow_csc
-from arow_csc import AROW, Instance, Prediction
+#from __future__ import print_function
 import sys
-sys.path.append("hvector") 
+from arow_csc import AROW, Instance, Prediction
+sys.path.append("hvector")
 from _mycollections import mydefaultdict
 from mydouble import mydouble, counts
-
 import random
-import math
-import numpy
-
-
+import numpy as np
 
 if __name__ == "__main__":
 
     random.seed(13)           
-    numpy.random.seed(13)
+    np.random.seed(13)
     dataLines = open(sys.argv[1]).readlines()
 
     instances = []
