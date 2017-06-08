@@ -1,12 +1,12 @@
 from arow_csc import arow, Instance, Prediction 
-from arow_csc.instance import instance_from_svm_input
+from arow_csc import Instance
 import unittest
 
 class InstanceTests(unittest.TestCase):
 
     def test_instance_1(self):
         data = "-1 1:0.1 2:0.5 9:0.1"
-        inst = instance_from_svm_input(data)
+        inst = Instance.instance_from_svm_input(data)
         #print inst
 
 
@@ -18,7 +18,7 @@ class AROWTests(unittest.TestCase):
                    "-1 1:0.1 2:0.6 8:0.3",
                    "+1 1:0.4 2:0.7 9:0.4",
                ]
-        data = [instance_from_svm_input(d) for d in dataset]
+        data = [Instance.instance_from_svm_input(d) for d in dataset]
         cl = arow.AROW()
         print [cl.predict(d).label for d in data]
         print [d.costs for d in data]

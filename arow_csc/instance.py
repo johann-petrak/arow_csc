@@ -1,36 +1,5 @@
-# Andreas Vlachos, 2013:
-# export PYTHONPATH="hvector/build/lib.linux-x86_64-2.7/:$PYTHONPATH"
-import sys
-sys.path.append("hvector") 
-from _mycollections import mydefaultdict
-from mydouble import mydouble, counts
-import cPickle as pickle
-import gzip
-from operator import itemgetter
-
-import random
-import math
-import numpy
-
-
-def instance_from_svm_input(svm_input):
-    """
-    Generate an Instance from a SVMLight input.
-    """
-    feat_vec = mydefaultdict(mydouble)
-    costs = {}
-    splitted = svm_input.split()
-    if splitted[0] == "-1":
-        costs["neg"] = 0
-        costs["pos"] = 1
-    elif splitted[0] == "+1":
-        costs["neg"] = 1
-        costs["pos"] = 0
-    for elem in splitted[1:]:
-        fid, val = elem.split(':')
-        feat_vec[fid] = float(val)
-    return Instance(feat_vec, costs)
-
+from __future__ import print_function
+from .featurevector import make_featurevector
 
 class Instance(object):
     """
@@ -40,7 +9,8 @@ class Instance(object):
     """
 
     def __init__(self, feat_vector, costs=None):
-        self.featureVector = mydefaultdict(mydouble)
+        #self.featureVector = mydefaultdict(mydouble)
+        self.featureVector = make_featurevector()
         for key, val in feat_vector.items():
             self.featureVector[key] = val
         self.costs = costs
@@ -84,21 +54,43 @@ class Instance(object):
         dataset. This static method remove these features from the
         dataset.
         """
-        print "Counting features"
-        feature2counts = mydefaultdict(mydouble)
+        print("Counting features")
+        #feature2counts = mydefaultdict(mydouble)
+        feature2counts = make_featurevector()
         for instance in instances:
             for element in instance.featureVector:
                 feature2counts[element] += 1
-        print len(feature2counts)
-        print "Removing hapax legomena"
+        print(len(feature2counts))
+        print("Removing hapax legomena")
         newInstances = []
         for instance in instances:
-            newFeatureVector = mydefaultdict(mydouble)
+            #newFeatureVector = mydefaultdict(mydouble)
+            newFeatureVector = make_featurevector()
             for element in instance.featureVector:
                 # if this feature was encountered more than once
                 if feature2counts[element] > 1:
                     newFeatureVector[element] = instance.featureVector[element]
             newInstances.append(Instance(newFeatureVector, instance.costs))
         return newInstances
+
+    @staticmethod
+    def instance_from_svm_input(svm_input):
+        """
+        Generate an Instance from a SVMLight input.
+        """
+        #feat_vec = mydefaultdict(mydouble)
+        feat_vec = make_featurevector()
+        costs = {}
+        splitted = svm_input.split()
+        if splitted[0] == "-1":
+            costs["neg"] = 0
+            costs["pos"] = 1
+        elif splitted[0] == "+1":
+            costs["neg"] = 1
+            costs["pos"] = 0
+        for elem in splitted[1:]:
+            fid, val = elem.split(':')
+            feat_vec[fid] = float(val)
+        return Instance(feat_vec, costs)
 
 
