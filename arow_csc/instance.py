@@ -1,5 +1,5 @@
 from __future__ import print_function
-from .featurevector import make_featurevector
+from .featurevector import FeatureVector
 
 class Instance(object):
     """
@@ -10,7 +10,7 @@ class Instance(object):
 
     def __init__(self, feat_vector, costs=None):
         #self.featureVector = mydefaultdict(mydouble)
-        self.featureVector = make_featurevector()
+        self.featureVector = FeatureVector.create()
         for key, val in feat_vector.items():
             self.featureVector[key] = val
         self.costs = costs
@@ -56,7 +56,7 @@ class Instance(object):
         """
         print("Counting features")
         #feature2counts = mydefaultdict(mydouble)
-        feature2counts = make_featurevector()
+        feature2counts = FeatureVector.create()
         for instance in instances:
             for element in instance.featureVector:
                 feature2counts[element] += 1
@@ -65,7 +65,7 @@ class Instance(object):
         newInstances = []
         for instance in instances:
             #newFeatureVector = mydefaultdict(mydouble)
-            newFeatureVector = make_featurevector()
+            newFeatureVector = FeatureVector.create()
             for element in instance.featureVector:
                 # if this feature was encountered more than once
                 if feature2counts[element] > 1:
@@ -79,7 +79,7 @@ class Instance(object):
         Generate an Instance from a SVMLight input.
         """
         #feat_vec = mydefaultdict(mydouble)
-        feat_vec = make_featurevector()
+        feat_vec = FeatureVector.create()
         costs = {}
         splitted = svm_input.split()
         if splitted[0] == "-1":

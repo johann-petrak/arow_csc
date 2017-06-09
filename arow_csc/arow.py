@@ -1,6 +1,6 @@
 from __future__ import print_function
 import sys
-from .featurevector import make_featurevector, dot, iaddc
+from .featurevector import FeatureVector
 import pickle
 import gzip
 from operator import itemgetter
@@ -29,7 +29,7 @@ class AROW(object):
         instance.featureVector["biasAutoAdded"] = 1.0 # Always add bias
         prediction = Prediction()
         for label, weightVector in self.currentWeightVectors.items():
-            score = dot(instance.featureVector, weightVector)
+            score = FeatureVector.dot(instance.featureVector, weightVector)
             prediction.label2score[label] = score
             if score > prediction.score:
                 prediction.score = score
@@ -65,7 +65,7 @@ class AROW(object):
                 maxScore = float("-inf")
                 maxLabel = None
                 for label, weightVector in probWeightVector.items():
-                    score = dot(instance.featureVector,weightVector)
+                    score = FeatureVector.dot(instance.featureVector,weightVector)
                     if score > maxScore:
                         maxScore = score
                         maxLabel = label
@@ -148,14 +148,14 @@ class AROW(object):
             averagedWeightVectors = {}
             updatesLeft = rounds * len(instances)
         for label in instances[0].costs:
-            self.currentWeightVectors[label] = make_featurevector()
+            self.currentWeightVectors[label] = FeatureVector.create()
             # remember: this is sparse in the sense that everething that doesn't have a value is 1
             # everytime we to do something with it, remember to add 1
             if adapt:
                 self.currentVarianceVectors[label] = {}
             # keep the averaged weight vector
             if averaging:
-                averagedWeightVectors[label] = make_featurevector()
+                averagedWeightVectors[label] = FeatureVector.create()
         return averagedWeightVectors, updatesLeft
 
     def _update_parameters(self, instance, prediction, averaging, adapt, param,
@@ -170,8 +170,8 @@ class AROW(object):
         for label in instance.correctLabels:
             #!!!2
             if label not in self.currentWeightVectors:
-                self.currentWeightVectors[label] = make_featurevector()
-            score = dot(instance.featureVector, self.currentWeightVectors[label])
+                self.currentWeightVectors[label] = FeatureVector.create()
+            score = FeatureVector.dot(instance.featureVector, self.currentWeightVectors[label])
             if score < minCorrectLabelScore:
                 minCorrectLabelScore = score
                 minCorrectLabel = label
@@ -181,8 +181,8 @@ class AROW(object):
         if adapt:
             # Calculate the confidence values
             # first for the predicted label
-            zVectorPredicted = make_featurevector()
-            zVectorMinCorrect = make_featurevector()
+            zVectorPredicted = FeatureVector.create()
+            zVectorMinCorrect = FeatureVector.create()
             for feature in instance.featureVector:
                 # the variance is either some value that is in the dict or just 1
                 if feature in self.currentVarianceVectors[prediction.label]:
@@ -192,36 +192,37 @@ class AROW(object):
                 # then for the minCorrect:
                 #!!!3
                 if minCorrectLabel not in self.currentVarianceVectors:
-                    self.currentVarianceVectors[minCorrectLabel] = make_featurevector()
+                    self.currentVarianceVectors[minCorrectLabel] = FeatureVector.create()
                 if feature in self.currentVarianceVectors[minCorrectLabel]:
                     zVectorMinCorrect[feature] = instance.featureVector[feature] * self.currentVarianceVectors[minCorrectLabel][feature]
                 else:
                     zVectorMinCorrect[feature] = instance.featureVector[feature]
-            confidence = dot(zVectorPredicted,instance.featureVector) + dot(zVectorMinCorrect,instance.featureVector)
+            confidence = FeatureVector.dot(zVectorPredicted,instance.featureVector) + \
+                         FeatureVector.dot(zVectorMinCorrect,instance.featureVector)
             beta = 1.0 / (confidence + param)
             alpha = loss * beta
 
             # update the current weight vectors
-            iaddc(self.currentWeightVectors[prediction.label],zVectorPredicted, -alpha)
-            iaddc(self.currentWeightVectors[minCorrectLabel],zVectorMinCorrect, alpha)
+            FeatureVector.iaddc(self.currentWeightVectors[prediction.label],zVectorPredicted, -alpha)
+            FeatureVector.iaddc(self.currentWeightVectors[minCorrectLabel],zVectorMinCorrect, alpha)
             if averaging:
-                iaddc(averagedWeightVectors[prediction.label],zVectorPredicted, -alpha * updatesLeft)
+                FeatureVector.iaddc(averagedWeightVectors[prediction.label],zVectorPredicted, -alpha * updatesLeft)
                 #!!!4
                 if minCorrectLabel not in averagedWeightVectors:
-                    averagedWeightVectors[minCorrectLabel] = make_featurevector()
-                iaddc(averagedWeightVectors[minCorrectLabel],zVectorMinCorrect, alpha * updatesLeft)
+                    averagedWeightVectors[minCorrectLabel] = FeatureVector.create()
+                FeatureVector.iaddc(averagedWeightVectors[minCorrectLabel],zVectorMinCorrect, alpha * updatesLeft)
         else:
             # the squared norm is twice the square of the features since they are the same per class 
-            norm = 2 * dot(instance.featureVector,instance.featureVector)
+            norm = 2 * FeatureVector.dot(instance.featureVector,instance.featureVector)
             factor = loss / (norm + 1.0 / (2 * param))
-            iaddc(self.currentWeightVectors[prediction.label],instance.featureVector, -factor)
-            iaddc(self.currentWeightVectors[minCorrectLabel],instance.featureVector, factor)
+            FeatureVector.iaddc(self.currentWeightVectors[prediction.label],instance.featureVector, -factor)
+            FeatureVector.iaddc(self.currentWeightVectors[minCorrectLabel],instance.featureVector, factor)
             if averaging:
-                iaddc(averagedWeightVectors[prediction.label],instance.featureVector, -factor * updatesLeft)
+                FeatureVector.iaddc(averagedWeightVectors[prediction.label],instance.featureVector, -factor * updatesLeft)
                 #!!!9
                 if minCorrectLabel not in averagedWeightVectors:
-                    averagedWeightVectors[minCorrectLabel] = make_featurevector()
-                iaddc(averagedWeightVectors[minCorrectLabel],instance.featureVector, factor * updatesLeft)
+                    averagedWeightVectors[minCorrectLabel] = FeatureVector.create()
+                FeatureVector.iaddc(averagedWeightVectors[minCorrectLabel],instance.featureVector, factor * updatesLeft)
         if adapt:
             # update the diagonal covariance
             #for feature in instance.featureVector.iterkeys():
@@ -248,7 +249,7 @@ class AROW(object):
         if adapt:
             self.currentVarianceVectors = {}
         for label in costs:
-            self.currentWeightVectors[label] = make_featurevector()
+            self.currentWeightVectors[label] = FeatureVector.create()
             # remember: this is sparse in the sense that everething that doesn't have a value is 1
             # everytime we to do something with it, remember to add 1
             if adapt:
@@ -288,8 +289,8 @@ class AROW(object):
 	    
         if averaging:
             for label in self.currentWeightVectors:
-                self.currentWeightVectors[label] = make_featurevector()
-                iaddc(self.currentWeightVectors[label],averagedWeightVectors[label],1.0 / float(rounds * len(instances)))
+                self.currentWeightVectors[label] = FeatureVector.create()
+                FeatureVector.iaddc(self.currentWeightVectors[label],averagedWeightVectors[label],1.0 / float(rounds * len(instances)))
 
         # Compute the final training error:
         finalTrainingErrors = 0
@@ -316,7 +317,7 @@ class AROW(object):
         for i in range(noWeightVectors):
             self.probWeightVectors.append({})
             for label in self.currentWeightVectors:
-                self.probWeightVectors[i][label] = make_featurevector()
+                self.probWeightVectors[i][label] = FeatureVector.create()
 
         for label in self.currentWeightVectors:
             # We are ignoring features that never got their weight set 
@@ -427,7 +428,7 @@ class AROW(object):
         weightVectors = pickle.load(model_weights)
         model_weights.close()
         for label, weightVector in weightVectors.items():
-            self.currentWeightVectors[label] = make_featurevector(weightVector)
+            self.currentWeightVectors[label] = FeatureVector.create(weightVector)
 
         try:
             with gzip.open(filename + "_probVectors.gz", "rb") as probFile:
@@ -437,7 +438,7 @@ class AROW(object):
                 for sample in pickleDictProbVectors:
                     label2Vectors = {}
                     for label,vector in sample.items():
-                        label2Vectors[label] = make_featurevector(vector)
+                        label2Vectors[label] = FeatureVector.create(vector)
                     self.probWeightVectors.append(label2Vectors)
 
                 probFile.close()

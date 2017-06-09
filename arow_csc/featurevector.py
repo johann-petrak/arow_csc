@@ -1,34 +1,33 @@
-import sys
-sys.path.append("hvector") 
-from _mycollections import mydefaultdict
-from mydouble import mydouble, counts
-from collections import defaultdict
+from __future__ import print_function
+implementation = "hvector"
+needimport = True
+_impl = None
 
-def make_featurevector_old(oldvec=None):
-    if(oldvec): return mydefaultdict(mydouble,oldvec)
-    else: return mydefaultdict(mydouble)
+class FeatureVector:
+    @staticmethod
+    def setimplementation(impl):
+        global implementation
+        implementation = impl
 
-def make_featurevector_new(oldvec=None):
-    if(oldvec): return defaultdict(float,oldvec)
-    else: return defaultdict(float)
+    @staticmethod
+    def create(oldvec=None):
+        global needimport, _impl, implementation
+        if needimport:
+            needimport = False
+            if implementation == "hvector":
+                print("Importing hvector implementation")
+                from .featurevector_hvector import FeatureVectorHvector
+                _impl = FeatureVectorHvector
+            elif implementation == "defaultdict":
+                print("Importing defaultdict implementation")
+                from .featurevector_defaultdict import FeatureVectorDefaultdict
+                _impl = FeatureVectorDefaultdict
+        return _impl.create(oldvec)
 
-def dot_old(fv1, fv2):
-    return fv1.dot(fv2)
+    @staticmethod
+    def dot(fv1, fv2):
+        return _impl.dot(fv1, fv2)
 
-def iaddc_old(fv1, fv2, val):
-    return fv1.iaddc(fv2, val)
-
-def dot_new(A, B):
-    keys = set(A).intersection(B)
-    sum = 0.0
-    for k in keys:
-        sum = sum + A[k] * B[k]
-    return sum
-
-def iaddc_new(addedTo, addedFrom, alpha):
-    for k in addedFrom:
-        addedTo[k] += alpha * addedFrom[k]
-
-dot = dot_old
-iaddc = iaddc_old
-make_featurevector = make_featurevector_old
+    @staticmethod
+    def iaddc(fv1, fv2, val):
+        return _impl.iaddc(fv1, fv2, val)

@@ -1,15 +1,37 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import sys
-from arow_csc import AROW, Instance, Prediction
+from arow_csc import AROW, Instance, FeatureVector
 import random
 import numpy as np
+import argparse
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(description="Train or apply an AROW model.")
+    parser.add_argument("-v", action='store_true', help="Show more messages about what the program is doing.")
+    parser.add_argument("-F", "--fvimpl", nargs=1, help="Feature vector implementation, one of hvector, defaultdict")
+    parser.add_argument("inFile", nargs=1, help="The input file to read")
+    parser.add_argument("outFile", nargs='?', help="The result file to write")
+    parser.add_argument("-a", "--action", nargs=1, help="What to do, one of t,train,a,apply,i,info")
+    args = parser.parse_args()
+    verbose = args.v
+    inFile = args.inFile[0]
+    outFile = None
+    if args.outFile:
+        outFile = args.outFile[0]
+
+
+
+    fvimpl = 'defaultdict'
+    if args.fvimpl:
+        fvimpl = args.fvimpl[0]
+        if fvimpl not in ['hvector','defaultdict']: sys.exit("Not a valid fvimpl")
+
+    FeatureVector.setimplementation(fvimpl)
     random.seed(13)           
     np.random.seed(13)
-    dataLines = open(sys.argv[1]).readlines()
+    dataLines = open(inFile).readlines()
 
     instances = []
     classifier_p = AROW()
