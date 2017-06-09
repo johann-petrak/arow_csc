@@ -3,3 +3,4 @@
 *.pyc
 *.binary
 /hvector
+/arow_csc.egg-info

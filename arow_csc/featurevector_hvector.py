@@ -17,3 +17,7 @@ class FeatureVectorHvector(object):
     @staticmethod
     def iaddc(fv1, fv2, val):
         return fv1.iaddc(fv2, val)
+
+    @staticmethod
+    def set(fv, el, val):
+        fv[el] = val

@@ -1,12 +1,10 @@
-from collections import defaultdict
 
-
-class FeatureVectorDefaultdict(object):
+class FeatureVectorDict(object):
 
     @staticmethod
     def create(oldvec=None):
-        if(oldvec): return defaultdict(float,oldvec)
-        else: return defaultdict(float)
+        if(oldvec): return dict(oldvec)
+        else: return dict()
 
     @staticmethod
     def dot(A, B):
@@ -19,7 +17,10 @@ class FeatureVectorDefaultdict(object):
     @staticmethod
     def iaddc(addedTo, addedFrom, alpha):
         for k in addedFrom:
-            addedTo[k] += alpha * addedFrom[k]
+            if k in addedTo:
+                addedTo[k] += alpha * addedFrom[k]
+            else:
+                addedTo[k] = alpha * addedFrom[k]
 
     @staticmethod
     def set(fv, el, val):

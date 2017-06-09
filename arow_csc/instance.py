@@ -1,4 +1,5 @@
 from __future__ import print_function
+import sys
 from .featurevector import FeatureVector
 
 class Instance(object):
@@ -9,10 +10,9 @@ class Instance(object):
     """
 
     def __init__(self, feat_vector, costs=None):
-        #self.featureVector = mydefaultdict(mydouble)
-        self.featureVector = FeatureVector.create()
-        for key, val in feat_vector.items():
-            self.featureVector[key] = val
+        self.featureVector = FeatureVector.create(feat_vector)
+        #!for key, val in feat_vector.items():
+        #!    self.featureVector[key] = val
         self.costs = costs
         if self.costs != None:
             self._normalize_costs()
@@ -78,19 +78,27 @@ class Instance(object):
         """
         Generate an Instance from a SVMLight input.
         """
-        #feat_vec = mydefaultdict(mydouble)
         feat_vec = FeatureVector.create()
         costs = {}
         splitted = svm_input.split()
-        if splitted[0] == "-1":
-            costs["neg"] = 0
-            costs["pos"] = 1
-        elif splitted[0] == "+1":
-            costs["neg"] = 1
-            costs["pos"] = 0
+        target = splitted[0].strip()
+        if target == "-1":
+            costs["neg"] = 0.0
+            costs["pos"] = 1.0
+        elif target == "+1" or target == "1":
+            costs["neg"] = 1.0
+            costs["pos"] = 0.0
+        else:
+            sys.exit("Unexpected target value for SVM input line:",svm_input)
+        dict={}
         for elem in splitted[1:]:
             fid, val = elem.split(':')
-            feat_vec[fid] = float(val)
+            value = float(val)
+            if value != 0.0:
+                dim=int(fid)
+                #feat_vec[dim] = float(val)
+                dict[dim] = float(val)
+        feat_vec = FeatureVector.create(dict)
         return Instance(feat_vec, costs)
 
 

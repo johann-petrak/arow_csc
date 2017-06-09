@@ -17,6 +17,9 @@ class AROW(object):
     the dataset.
     """
 
+    # index to use in the sparse feature vector for the bias
+    BIASINDEX = sys.maxint-1
+
     def __init__(self):
         self.probabilities = False
         self.currentWeightVectors = {}
@@ -26,7 +29,7 @@ class AROW(object):
         """
         Predict the label for an instance using the current weight vector.
         """
-        instance.featureVector["biasAutoAdded"] = 1.0 # Always add bias
+        instance.featureVector[self.BIASINDEX] = 1.0 # Always add bias
         prediction = Prediction()
         for label, weightVector in self.currentWeightVectors.items():
             score = FeatureVector.dot(instance.featureVector, weightVector)
