@@ -1,11 +1,18 @@
 Cost-sensitive multiclass classification with Adaptive Regularization of Weights
 
-This is a fork and modification of Andreas Vlachos' original cost-sensitive, multiclass AROW code here: https://github.com/andreasvlachos/arow_csc
+This is a modification of Andreas Vlachos' original cost-sensitive, multiclass AROW code here: https://github.com/andreasvlachos/arow_csc
 
 Authors:
 * Andreas Vlachos
 * Gerasimos Lampuras
 * Johann Petrak
+
+This contains the following changes:
+* better command-line interface
+* pluggable back-ends for the sparse feature vectors
+* works with Python2 and Python3
+* (TODO) possible to use like a sklearn model
+* (TODO) can deal with various data formtats, including vowpal\_wabbit
 
 ## Representation of Feature Vectors
 
