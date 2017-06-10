@@ -43,8 +43,8 @@ class Instance(object):
             self.maxCost -= min_cost
 
     def __str__(self):
-        costs_list = [label + ':' + str(self.costs[label]) for label in self.costs]
-        feat_list = [feat + ':' + str(self.featureVector[feat]) for feat in self.featureVector]
+        costs_list = [str(label) + ':' + str(self.costs[label]) for label in self.costs]
+        feat_list = [str(feat) + ':' + str(self.featureVector[feat]) for feat in self.featureVector]
         return ','.join(costs_list) + '\t' + ' '.join(feat_list)
 
     @staticmethod
@@ -90,15 +90,12 @@ class Instance(object):
             costs["pos"] = 0.0
         else:
             sys.exit("Unexpected target value for SVM input line:",svm_input)
-        dict={}
         for elem in splitted[1:]:
             fid, val = elem.split(':')
             value = float(val)
             if value != 0.0:
-                dim=int(fid)
-                #feat_vec[dim] = float(val)
-                dict[dim] = float(val)
-        feat_vec = FeatureVector.create(dict)
+                dim = int(fid)
+                feat_vec[dim] = float(val)
         return Instance(feat_vec, costs)
 
 

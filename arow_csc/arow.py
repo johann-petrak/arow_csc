@@ -18,12 +18,13 @@ class AROW(object):
     """
 
     # index to use in the sparse feature vector for the bias
-    BIASINDEX = sys.maxint-1
+    BIASINDEX = "BIAS"
 
     def __init__(self):
         self.probabilities = False
         self.currentWeightVectors = {}
         self.currentVarianceVectors = {}
+        self.debug = False
 
     def predict(self, instance, verbose=False, probabilities=False):
         """
@@ -179,6 +180,7 @@ class AROW(object):
                 minCorrectLabelScore = score
                 minCorrectLabel = label
 
+        if self.debug: print("DEBUG: 1")
         # the loss is the scaled margin loss also used by Mejer and Crammer 2010
         loss = prediction.score - minCorrectLabelScore  + math.sqrt(instance.costs[prediction.label])
         if adapt:
@@ -187,6 +189,7 @@ class AROW(object):
             zVectorPredicted = FeatureVector.create()
             zVectorMinCorrect = FeatureVector.create()
             for feature in instance.featureVector:
+                if self.debug: print("DEBUG: feature ",feature)
                 # the variance is either some value that is in the dict or just 1
                 if feature in self.currentVarianceVectors[prediction.label]:
                     zVectorPredicted[feature] = instance.featureVector[feature] * self.currentVarianceVectors[prediction.label][feature]
@@ -194,12 +197,15 @@ class AROW(object):
                     zVectorPredicted[feature] = instance.featureVector[feature]
                 # then for the minCorrect:
                 #!!!3
+                if self.debug: print("DEBUG: point !!3 ")
                 if minCorrectLabel not in self.currentVarianceVectors:
                     self.currentVarianceVectors[minCorrectLabel] = FeatureVector.create()
+                if self.debug: print("DEBUG: point !!3a ")
                 if feature in self.currentVarianceVectors[minCorrectLabel]:
                     zVectorMinCorrect[feature] = instance.featureVector[feature] * self.currentVarianceVectors[minCorrectLabel][feature]
                 else:
                     zVectorMinCorrect[feature] = instance.featureVector[feature]
+            if self.debug: print("DEBUG: before dot, vecs: ",zVectorPredicted,instance.featureVector,zVectorMinCorrect,instance.featureVector)
             confidence = FeatureVector.dot(zVectorPredicted,instance.featureVector) + \
                          FeatureVector.dot(zVectorMinCorrect,instance.featureVector)
             beta = 1.0 / (confidence + param)
@@ -226,6 +232,7 @@ class AROW(object):
                 if minCorrectLabel not in averagedWeightVectors:
                     averagedWeightVectors[minCorrectLabel] = FeatureVector.create()
                 FeatureVector.iaddc(averagedWeightVectors[minCorrectLabel],instance.featureVector, factor * updatesLeft)
+        if self.debug: print("DEBUG: 2")
         if adapt:
             # update the diagonal covariance
             #for feature in instance.featureVector.iterkeys():
@@ -268,22 +275,27 @@ class AROW(object):
         # averaging is False. Setting it as an instance attribute
         # might be better.
         averagedWeightVectors, updatesLeft = self._initialize_vectors(instances, averaging, rounds, adapt)
-
+        if self.debug: print("DEBUG train: initialized vectors")
         for r in range(rounds):
             if shuffling:
                 random.shuffle(instances)
             errorsInRound = 0
             costInRound = 0
             for instance in instances:
+                if self.debug: print("DEBUG train: processing instance", instance)
                 prediction = self.predict(instance)
+                if self.debug: print("DEBUG train: got prediction", prediction)
                 # so if the prediction was incorrect
                 # we are no longer large margin, since we are using the loss from the cost-sensitive PA
                 #!!!5
                 if prediction.label not in instance.costs:
+                    if self.debug: print("DEBUG train: not in costs, set for ",prediction.label)
                     instance.costs[prediction.label] = 1.0
                 if instance.costs[prediction.label] > 0:
+                    if self.debug: print("DEBUG train: is in costs, add for ",prediction.label," cost is ",instance.costs[prediction.label])
                     errorsInRound += 1
                     costInRound += instance.costs[prediction.label]
+                    if self.debug: print("DEBUG updating parms")
                     self._update_parameters(instance, prediction, averaging, adapt, param,
                                             averagedWeightVectors, updatesLeft)
                 if averaging:

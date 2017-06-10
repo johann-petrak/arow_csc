@@ -41,10 +41,10 @@ if __name__ == "__main__":
     linenr = 0
     for line in dataLines:
         linenr += 1
-        if debug: print("Reading line",linenr)
+        if debug: print("Reading line", linenr)
         instance = Instance.instance_from_svm_input(line)
         instances.append(instance)
-
+    if debug: print("All lines read")
     ##random.shuffle(instances)
     #instances = instances[:100]
     # Keep some instances to check the performance
