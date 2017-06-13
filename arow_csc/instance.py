@@ -1,6 +1,11 @@
 from __future__ import print_function
 import sys
 from .featurevector import FeatureVector
+import re
+
+re_cc = re.compile("([0-9]+):([0-9\.E+-]+)")
+re_feat = re.compile("([^\s|:]+):([0-9\.E+-]+)")
+re_ws = re.compile("\s+")
 
 class Instance(object):
     """
@@ -11,8 +16,6 @@ class Instance(object):
 
     def __init__(self, feat_vector, costs=None):
         self.featureVector = FeatureVector.create(feat_vector)
-        #!for key, val in feat_vector.items():
-        #!    self.featureVector[key] = val
         self.costs = costs
         if self.costs != None:
             self._normalize_costs()
@@ -76,7 +79,8 @@ class Instance(object):
     @staticmethod
     def instance_from_svm_input(svm_input):
         """
-        Generate an Instance from a SVMLight input.
+        Generate an Instance from a line of SVMLight input (string).
+        This so far only supports lines with a target of -1 or +1 and creates costs of 0.0 or 1.0 for those.
         """
         feat_vec = FeatureVector.create()
         costs = {}
@@ -98,4 +102,39 @@ class Instance(object):
                 feat_vec[dim] = float(val)
         return Instance(feat_vec, costs)
 
-
+    @staticmethod
+    def instance_from_vw(line,nclasses=None):
+        """
+        Generate an Instance from a line of  vowpal wabbit like (simple) format.
+        This understands per-instance class costs but so far does not allow importance fields and
+        only supports training format where the class/cost pairs must be present.
+       :param string: one line in vowpal wabbit format
+        :param nclasses: the number of classes to expect, if not specified all classes must be present in each line
+        :return: an Instance
+        """
+        global re_feat, re_cc
+        line = line.strip()
+        tinfo, finfo = line.split("|", 1)
+        costs = {}
+        fv = FeatureVector.create()
+        ## in the target information, only consider integer-colon-float
+        parts = re_ws.split(tinfo)
+        for part in parts:
+            m = re_cc.match(part)
+            if m:
+                cid, cost = m.groups()
+                costs[str(cid)] = float(cost)
+        ## NOTE: we ignore name spaces for now and expect there are none in the input!!!
+        parts = re_ws.split(finfo.strip())
+        for part in parts:
+            m = re_feat.match(part)
+            if m:
+                fname, fval = m.groups()
+            else:
+                fname = part
+                fval = 1.0
+            fval = float(fval)
+            if fval != 0.0:
+                # print("adding feature ", fname, "=", fval)
+                fv[str(fname)] = fval
+        return Instance(fv,costs)

@@ -37,3 +37,6 @@ class FeatureVectorTmp1(object):
 
     def __iter__(self):
         return self.fv.__iter__()
+
+    def __len__(self):
+        return self.fv.__len__()

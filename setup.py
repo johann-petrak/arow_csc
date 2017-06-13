@@ -4,7 +4,7 @@ from setuptools import setup
 here = os.path.abspath(os.path.dirname(__file__))
 def read(fname):
     return open(os.path.join(here, fname)).read()
-readme = read('README')
+readme = read('README.md')
 
 setup(
     name="arow_csc",
